@@ -1,0 +1,83 @@
+version: "3"
+
+vars:
+  BINARY: yg
+
+tasks:
+  build:
+    desc: Build the yg binary
+    cmds:
+      - go build -o {{.BINARY}} ./cmd/yg/
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -count=1
+
+  test:verbose:
+    desc: Run all tests with verbose output
+    cmds:
+      - go test ./... -v -count=1
+
+  test:race:
+    desc: Run tests with race detector
+    cmds:
+      - go test -race ./... -count=1
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  check:
+    desc: Build, test, and lint
+    deps: [build, test, lint]
+
+  run:
+    desc: Run the binary (pass args with --)
+    cmds:
+      - ./{{.BINARY}} {{.CLI_ARGS}}
+
+  install:
+    desc: Install yg to $GOPATH/bin
+    cmds:
+      - go install ./cmd/yg/
+
+  link:
+    desc: Symlink the build output to ~/.local/bin/
+    cmds:
+      - mkdir -p ~/.local/bin
+      - ln -sf {{.PWD}}/{{.BINARY}} ~/.local/bin/{{.BINARY}}
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f {{.BINARY}} coverage.out
+      - rm -rf .cover/
+
+  tidy:
+    desc: Tidy go modules
+    cmds:
+      - go mod tidy
+
+  cover:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out
+
+  cover:html:
+    desc: Generate HTML coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out
+
+  fmt:
+    desc: Format all Go files
+    cmds:
+      - go fmt ./...

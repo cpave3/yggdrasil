@@ -1,0 +1,19 @@
+# Binary
+/yg
+
+# Test binaries
+*.test
+
+# Coverage
+coverage.out
+.cover/
+
+# Go build cache
+/vendor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config
+.yggdrasil.local.toml

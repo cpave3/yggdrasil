@@ -126,7 +126,16 @@ yg remove --delete-branch feature-payment-integration
 
 # Remove an agent-owned tree (auto-unlocks first):
 yg remove agent-refactor-1
+
+# Remove the worktree you're currently sitting in (branch is preserved):
+cd /repos/myproject.feature-payment-integration
+yg remove --current
 ```
+
+If removal fails because provisioning left root-owned files behind (e.g. Docker
+volumes), `yg` detects them and offers to retry with `sudo` in an interactive
+shell. In a non-interactive context it prints the `sudo rm -rf` command to run
+manually.
 
 ### Crash recovery
 

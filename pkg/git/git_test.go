@@ -1,6 +1,7 @@
 package git
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -105,6 +106,49 @@ func TestWorktreeRemove_RemovesDir(t *testing.T) {
 	assert.Len(t, worktrees, 1, "expected only primary worktree after remove")
 }
 
+// TestShowToplevel_ReturnsRepoRoot verifies that ShowToplevel returns the
+// repository root when called from the primary working tree.
+func TestShowToplevel_ReturnsRepoRoot(t *testing.T) {
+	repo := testutil.NewGitRepo(t)
+	g := New(repo.Dir)
+
+	top, err := g.ShowToplevel()
+	require.NoError(t, err)
+	assert.Equal(t, repo.Dir, top)
+}
+
+// TestShowToplevel_FromSubdirectory verifies that ShowToplevel canonicalises
+// a subdirectory up to the worktree root.
+func TestShowToplevel_FromSubdirectory(t *testing.T) {
+	repo := testutil.NewGitRepo(t)
+	repo.WriteFile(t, "src/main.txt", "x")
+	repo.Commit(t, "add src")
+
+	sub := filepath.Join(repo.Dir, "src")
+	g := New(sub)
+
+	top, err := g.ShowToplevel()
+	require.NoError(t, err)
+	assert.Equal(t, repo.Dir, top)
+}
+
+// TestShowToplevel_WorktreeReturnsWorktreeRoot verifies that ShowToplevel
+// returns the linked worktree's own root, not the primary repo root, when
+// called from inside a linked worktree.
+func TestShowToplevel_WorktreeReturnsWorktreeRoot(t *testing.T) {
+	repo := testutil.NewGitRepo(t)
+	g := New(repo.Dir)
+
+	wtPath := filepath.Join(repo.Dir, "..", "test-wt")
+	err := g.WorktreeAdd("feature-x", wtPath, "main")
+	require.NoError(t, err)
+
+	g2 := New(wtPath)
+	top, err := g2.ShowToplevel()
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Clean(wtPath), filepath.Clean(top))
+}
+
 // TestDetectTrunk_ReturnsMainBranch verifies that DetectTrunk returns "main"
 // for a repo whose default branch is main.
 func TestDetectTrunk_ReturnsMainBranch(t *testing.T) {
@@ -114,6 +158,31 @@ func TestDetectTrunk_ReturnsMainBranch(t *testing.T) {
 	trunk, err := g.DetectTrunk()
 	require.NoError(t, err)
 	assert.Equal(t, "main", trunk)
+}
+
+// TestWorktreePrune_CleansStaleEntry verifies that WorktreePrune removes the
+// administrative entry for a worktree whose directory was deleted out-of-band.
+func TestWorktreePrune_CleansStaleEntry(t *testing.T) {
+	repo := testutil.NewGitRepo(t)
+	g := New(repo.Dir)
+
+	wtPath := filepath.Join(repo.Dir, "..", "prune-test")
+	err := g.WorktreeAdd("feature-prune", wtPath, "main")
+	require.NoError(t, err)
+
+	// Delete the directory without going through git worktree remove.
+	require.NoError(t, os.RemoveAll(wtPath))
+
+	// The stale entry should still be listed (prune hasn't run yet).
+	worktrees, err := g.WorktreeList()
+	require.NoError(t, err)
+	assert.Len(t, worktrees, 2, "stale entry should still be present before prune")
+
+	// Prune and verify it's gone.
+	require.NoError(t, g.WorktreePrune())
+	worktrees, err = g.WorktreeList()
+	require.NoError(t, err)
+	assert.Len(t, worktrees, 1, "stale entry should be removed after prune")
 }
 
 // TestWorktreeLock_AndUnlock verifies that lock sets and unlock clears the

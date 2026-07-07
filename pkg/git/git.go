@@ -123,6 +123,14 @@ func (r *Runner) WorktreeRemove(path string, force bool) error {
 	return err
 }
 
+// WorktreePrune cleans up stale worktree administrative entries (e.g. after
+// a worktree directory was removed out-of-band). It is the equivalent of
+// `git worktree prune`.
+func (r *Runner) WorktreePrune() error {
+	_, err := r.run("worktree", "prune")
+	return err
+}
+
 // WorktreeLock locks a worktree, preventing it from being pruned.
 func (r *Runner) WorktreeLock(path, reason string) error {
 	args := []string{"worktree", "lock", path}
@@ -137,6 +145,18 @@ func (r *Runner) WorktreeLock(path, reason string) error {
 func (r *Runner) WorktreeUnlock(path string) error {
 	_, err := r.run("worktree", "unlock", path)
 	return err
+}
+
+// ShowToplevel returns the absolute root path of the working tree that
+// contains the Runner's directory. Unlike os.Getwd() it canonicalises
+// subdirectories to the worktree root, which is what WorktreeList reports.
+// Returns an error if the directory is not inside a git worktree.
+func (r *Runner) ShowToplevel() (string, error) {
+	out, err := r.run("rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	return out, nil
 }
 
 // DetectTrunk returns the trunk branch name. It tries origin/HEAD first,

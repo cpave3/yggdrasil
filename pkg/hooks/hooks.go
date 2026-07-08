@@ -30,9 +30,11 @@ type HookContext struct {
 	Primary    string  // primary worktree path (YG_PRIMARY)
 	Branch     string  // branch name (YG_BRANCH)
 	Trunk      string  // trunk branch name (YG_TRUNK)
+	Base       string  // base branch/commit the worktree was created from (YG_BASE)
 	Repo       string  // git common dir (YG_REPO)
 	Profile    string  // profile name (YG_PROFILE)
 	AgentOwned string  // "1" or "0" (YG_AGENT_OWNED)
+	BranchNew  string  // "1" if the branch was newly created, "0" if it pre-existed (YG_BRANCH_NEW)
 	Commands   []string // ordered hook commands to run
 	DryRun     bool     // if true, don't execute
 }
@@ -79,9 +81,11 @@ func buildEnv(ctx HookContext) []string {
 		"YG_PRIMARY="+ctx.Primary,
 		"YG_BRANCH="+ctx.Branch,
 		"YG_TRUNK="+ctx.Trunk,
+		"YG_BASE="+ctx.Base,
 		"YG_REPO="+ctx.Repo,
 		"YG_PROFILE="+ctx.Profile,
 		"YG_EVENT="+string(ctx.Event),
 		"YG_AGENT_OWNED="+ctx.AgentOwned,
+		"YG_BRANCH_NEW="+ctx.BranchNew,
 	)
 }

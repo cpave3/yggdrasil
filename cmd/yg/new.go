@@ -74,6 +74,17 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	g := git.New(primaryDir)
 
+	// Check if branch exists — needed for both dry-run and real paths so
+	// we can signal YG_BRANCH_NEW to hooks.
+	branchExists, err := g.BranchExists(branch)
+	if err != nil {
+		return fmt.Errorf("checking branch: %w", err)
+	}
+	branchNew := "0"
+	if !branchExists {
+		branchNew = "1"
+	}
+
 	if dryRun {
 		fmt.Printf("[dry-run] would create worktree at %s\n", wtPath)
 		fmt.Printf("[dry-run] branch: %s (base: %s)\n", branch, base)
@@ -110,8 +121,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       base,
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  branchNew,
 			Commands:   cfg.Hooks.PreCreate,
 			DryRun:     true,
 		})
@@ -121,8 +134,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       base,
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  branchNew,
 			Commands:   cfg.Hooks.PostCreate,
 			DryRun:     true,
 		})
@@ -133,13 +148,8 @@ func runNew(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Check if branch exists, create if not
-	exists, err := g.BranchExists(branch)
-	if err != nil {
-		return fmt.Errorf("checking branch: %w", err)
-	}
-
-	if !exists {
+	// Create branch if it didn't exist (checked above for YG_BRANCH_NEW)
+	if !branchExists {
 		if err := g.CreateBranch(branch, base); err != nil {
 			return fmt.Errorf("creating branch %s from %s: %w", branch, base, err)
 		}
@@ -170,9 +180,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       base,
 			Repo:       commonDirOr(primaryDir, primaryDir),
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  branchNew,
 			Commands:   cfg.Hooks.PreCreate,
 		}); err != nil {
 			return fmt.Errorf("pre_create hook failed: %w", err)
@@ -199,9 +211,11 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       base,
 			Repo:       commonDirOr(primaryDir, primaryDir),
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  branchNew,
 			Commands:   cfg.Hooks.PostCreate,
 		}); err != nil {
 			return fmt.Errorf("post_create hook failed: %w", err)

@@ -36,14 +36,16 @@ func TestRun_EnvContract(t *testing.T) {
 
 	ctx := HookContext{
 		Event:      PostCreate,
-		Worktree:  worktree,
-		Primary:   primary,
-		Branch:    "feature-x",
-		Trunk:     "main",
-		Repo:      repo,
-		Profile:   "human",
+		Worktree:   worktree,
+		Primary:    primary,
+		Branch:     "feature-x",
+		Trunk:      "main",
+		Base:       "dev-branch",
+		Repo:       repo,
+		Profile:    "human",
 		AgentOwned: "0",
-		Commands:  []string{`env > env.txt`},
+		BranchNew:  "1",
+		Commands:   []string{`env > env.txt`},
 	}
 
 	err := Run(ctx)
@@ -57,10 +59,12 @@ func TestRun_EnvContract(t *testing.T) {
 	assert.Contains(t, envOutput, "YG_PRIMARY="+primary)
 	assert.Contains(t, envOutput, "YG_BRANCH=feature-x")
 	assert.Contains(t, envOutput, "YG_TRUNK=main")
+	assert.Contains(t, envOutput, "YG_BASE=dev-branch")
 	assert.Contains(t, envOutput, "YG_REPO="+repo)
 	assert.Contains(t, envOutput, "YG_PROFILE=human")
 	assert.Contains(t, envOutput, "YG_EVENT=post_create")
 	assert.Contains(t, envOutput, "YG_AGENT_OWNED=0")
+	assert.Contains(t, envOutput, "YG_BRANCH_NEW=1")
 }
 
 // TestRun_CWDPostCreate verifies that post_create hooks run in the worktree

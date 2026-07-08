@@ -173,10 +173,12 @@ Every hook receives these environment variables:
 | `YG_PRIMARY`     | Primary worktree path                           |
 | `YG_BRANCH`      | Branch name                                     |
 | `YG_TRUNK`       | Trunk branch name                               |
+| `YG_BASE`        | Base branch/commit the worktree was created from |
 | `YG_REPO`        | Git common directory                            |
 | `YG_PROFILE`     | Profile name (always "human" in v0.1)          |
 | `YG_EVENT`       | Lifecycle event name                            |
 | `YG_AGENT_OWNED` | "1" or "0"                                      |
+| `YG_BRANCH_NEW`  | "1" if the branch was newly created, "0" if it pre-existed |
 
 ### CWD contract
 

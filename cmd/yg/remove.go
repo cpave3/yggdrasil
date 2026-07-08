@@ -182,9 +182,11 @@ func removeWorktree(branch, wtPath, primaryDir string, wt *git.Worktree, cfg *co
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       "",
 			Repo:       commonDirOr(primaryDir, primaryDir),
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  "0",
 			Commands:   cfg.Hooks.PreRemove,
 		}); err != nil {
 			return fmt.Errorf("pre_remove hook failed: %w", err)
@@ -219,9 +221,11 @@ func removeWorktree(branch, wtPath, primaryDir string, wt *git.Worktree, cfg *co
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       "",
 			Repo:       commonDirOr(primaryDir, primaryDir),
 			Profile:    "human",
 			AgentOwned: agentOwned,
+			BranchNew:  "0",
 			Commands:   cfg.Hooks.PostRemove,
 		}); err != nil {
 			return fmt.Errorf("post_remove hook failed: %w", err)

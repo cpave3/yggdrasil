@@ -70,8 +70,10 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       "",
 			Profile:    "human",
 			AgentOwned: "0",
+			BranchNew:  "0",
 			Commands:   cfg.Hooks.PostCreate,
 			DryRun:     true,
 		})
@@ -98,9 +100,11 @@ func runSetup(cmd *cobra.Command, args []string) error {
 			Primary:    primaryDir,
 			Branch:     branch,
 			Trunk:      trunk,
+			Base:       "",
 			Repo:       commonDirOr(primaryDir, primaryDir),
 			Profile:    "human",
 			AgentOwned: "0",
+			BranchNew:  "0",
 			Commands:   cfg.Hooks.PostCreate,
 		}); err != nil {
 			return fmt.Errorf("post_create hook failed: %w", err)

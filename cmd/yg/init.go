@@ -98,8 +98,8 @@ func generateConfig(repoDir string) string {
 	b.WriteString("# Lifecycle hooks — each is an ordered list of shell commands run via sh -c.\n")
 	b.WriteString("# pre_create runs in the primary worktree; post_create runs in the new tree.\n")
 	b.WriteString("# pre_remove / post_remove run in the primary.\n")
-	b.WriteString("# Every hook receives: YG_WORKTREE, YG_PRIMARY, YG_BRANCH, YG_TRUNK,\n")
-	b.WriteString("#   YG_REPO, YG_PROFILE, YG_EVENT, YG_AGENT_OWNED\n")
+	b.WriteString("# Every hook receives: YG_WORKTREE, YG_PRIMARY, YG_BRANCH, YG_TRUNK, YG_BASE,\n")
+	b.WriteString("#   YG_REPO, YG_PROFILE, YG_EVENT, YG_AGENT_OWNED, YG_BRANCH_NEW\n")
 	b.WriteString("pre_create = []\n")
 	if len(postCreate) > 0 {
 		b.WriteString(fmt.Sprintf("post_create = %s\n", formatTomlList(postCreate)))

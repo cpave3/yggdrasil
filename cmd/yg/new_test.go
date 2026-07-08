@@ -195,5 +195,101 @@ path_template = "../{repo}.{branch}"
 	assert.NoError(t, err, "expected worktree at %s", expectedPath)
 }
 
+// TestNew_BranchNewSignalForNewBranch verifies that YG_BRANCH_NEW=1 and
+// YG_BASE=<base> are set in the hook environment when the branch is newly
+// created.
+func TestNew_BranchNewSignalForNewBranch(t *testing.T) {
+	binary := buildBinary(t)
+	repoDir := initTestRepo(t)
+
+	configContent := `
+[general]
+path_template = "../{repo}.{branch}"
+
+[hooks]
+post_create = ["env > .yg-env-capture"]
+`
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".yggdrasil.toml"), []byte(configContent), 0644))
+
+	cmd := exec.Command(binary, "new", "fresh-feature")
+	cmd.Dir = repoDir
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "yg new failed: %s", string(out))
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+".fresh-feature")
+	envCapture, err := os.ReadFile(filepath.Join(wtPath, ".yg-env-capture"))
+	require.NoError(t, err, "expected .yg-env-capture in worktree")
+	envStr := string(envCapture)
+
+	assert.Contains(t, envStr, "YG_BRANCH_NEW=1", "YG_BRANCH_NEW should be 1 for a newly created branch")
+	assert.Contains(t, envStr, "YG_BASE=main", "YG_BASE should be the trunk (main) when no explicit base")
+	assert.Contains(t, envStr, "YG_BRANCH=fresh-feature")
+}
+
+// TestNew_BranchNewSignalForExistingBranch verifies that YG_BRANCH_NEW=0 is
+// set when the branch already existed before `yg new`.
+func TestNew_BranchNewSignalForExistingBranch(t *testing.T) {
+	binary := buildBinary(t)
+	repoDir := initTestRepo(t)
+
+	configContent := `
+[general]
+path_template = "../{repo}.{branch}"
+
+[hooks]
+post_create = ["env > .yg-env-capture"]
+`
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".yggdrasil.toml"), []byte(configContent), 0644))
+
+	// Pre-create the branch so yg new doesn't create it
+	exec.Command("git", "-C", repoDir, "branch", "pre-existing").Run()
+
+	cmd := exec.Command(binary, "new", "pre-existing")
+	cmd.Dir = repoDir
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "yg new with existing branch failed: %s", string(out))
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+".pre-existing")
+	envCapture, err := os.ReadFile(filepath.Join(wtPath, ".yg-env-capture"))
+	require.NoError(t, err, "expected .yg-env-capture in worktree")
+	envStr := string(envCapture)
+
+	assert.Contains(t, envStr, "YG_BRANCH_NEW=0", "YG_BRANCH_NEW should be 0 for a pre-existing branch")
+}
+
+// TestNew_BaseFromExplicitArg verifies that YG_BASE reflects an explicit base
+// argument, not just the trunk default.
+func TestNew_BaseFromExplicitArg(t *testing.T) {
+	binary := buildBinary(t)
+	repoDir := initTestRepo(t)
+
+	// Create a non-trunk base branch
+	exec.Command("git", "-C", repoDir, "branch", "dev-staging").Run()
+
+	configContent := `
+[general]
+path_template = "../{repo}.{branch}"
+
+[hooks]
+post_create = ["env > .yg-env-capture"]
+`
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, ".yggdrasil.toml"), []byte(configContent), 0644))
+
+	cmd := exec.Command(binary, "new", "feature-from-dev", "dev-staging")
+	cmd.Dir = repoDir
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "yg new with explicit base failed: %s", string(out))
+
+	wtPath := filepath.Join(filepath.Dir(repoDir), filepath.Base(repoDir)+".feature-from-dev")
+	envCapture, err := os.ReadFile(filepath.Join(wtPath, ".yg-env-capture"))
+	require.NoError(t, err, "expected .yg-env-capture in worktree")
+	envStr := string(envCapture)
+
+	assert.Contains(t, envStr, "YG_BASE=dev-staging", "YG_BASE should reflect the explicit base argument")
+	assert.Contains(t, envStr, "YG_BRANCH_NEW=1")
+}
 
 // avoid unused import warning

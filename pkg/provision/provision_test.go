@@ -31,6 +31,32 @@ func TestProvision_CopiesFile(t *testing.T) {
 	assert.Equal(t, "KEY=value", string(content))
 }
 
+// TestProvision_CopySymlinkLinksInternalTarget verifies that a literal copy
+// pattern matching a symlink recreates the symlink against the target worktree.
+func TestProvision_CopySymlinkLinksInternalTarget(t *testing.T) {
+	primary := t.TempDir()
+	target := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(primary, ".env.source"), []byte("source"), 0644))
+	require.NoError(t, os.Symlink(filepath.Join(primary, ".env.source"), filepath.Join(primary, ".env.local")))
+
+	err := Provision(ProvisionConfig{
+		PrimaryDir: primary,
+		TargetDir:  target,
+		Copy:       []string{".env.local"},
+	})
+	require.NoError(t, err)
+
+	linkPath := filepath.Join(target, ".env.local")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.True(t, info.Mode()&os.ModeSymlink != 0, "expected symlink")
+
+	linkTarget, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(target, ".env.source"), linkTarget)
+}
+
 // TestProvision_CreatesParentDirectories verifies that parent directories are
 // created as needed for nested copy targets.
 func TestProvision_CreatesParentDirectories(t *testing.T) {
@@ -76,6 +102,67 @@ func TestProvision_RecursiveCopy(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(target, "config", "sub", "b.json"))
 	require.NoError(t, err)
 	assert.Equal(t, "b", string(b))
+}
+
+// TestProvision_RecursiveCopyLinksInternalSymlinkTarget verifies that
+// directory copy recreates symlinks and rewrites primary-internal targets to
+// the equivalent path in the target worktree.
+func TestProvision_RecursiveCopyLinksInternalSymlinkTarget(t *testing.T) {
+	primary := t.TempDir()
+	target := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(primary, "config"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(primary, "config", "app.json"), []byte("app"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(primary, ".env.source"), []byte("secret"), 0644))
+	require.NoError(t, os.Symlink(filepath.Join(primary, ".env.source"), filepath.Join(primary, "config", ".env.local")))
+
+	err := Provision(ProvisionConfig{
+		PrimaryDir: primary,
+		TargetDir:  target,
+		Copy:       []string{"config"},
+	})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(target, "config", "app.json"))
+	require.NoError(t, err)
+	assert.Equal(t, "app", string(content))
+
+	linkPath := filepath.Join(target, "config", ".env.local")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.True(t, info.Mode()&os.ModeSymlink != 0, "expected symlink")
+
+	linkTarget, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(target, ".env.source"), linkTarget)
+}
+
+// TestProvision_RecursiveCopyLinksExternalSymlinkTarget verifies that
+// symlink targets outside the primary worktree keep their resolved target.
+func TestProvision_RecursiveCopyLinksExternalSymlinkTarget(t *testing.T) {
+	primary := t.TempDir()
+	target := t.TempDir()
+	outside := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(primary, "config"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, ".env.source"), []byte("secret"), 0644))
+	require.NoError(t, os.Symlink(filepath.Join(outside, ".env.source"), filepath.Join(primary, "config", ".env.local")))
+
+	err := Provision(ProvisionConfig{
+		PrimaryDir: primary,
+		TargetDir:  target,
+		Copy:       []string{"config"},
+	})
+	require.NoError(t, err)
+
+	linkPath := filepath.Join(target, "config", ".env.local")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.True(t, info.Mode()&os.ModeSymlink != 0, "expected symlink")
+
+	linkTarget, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(outside, ".env.source"), linkTarget)
 }
 
 // TestProvision_LinksFile verifies that provisioning a link pattern creates a
@@ -173,4 +260,35 @@ func TestProvision_GlobPattern(t *testing.T) {
 	content, err = os.ReadFile(filepath.Join(target, ".env.production"))
 	require.NoError(t, err)
 	assert.Equal(t, "prod", string(content))
+}
+
+// TestProvision_GlobPatternLinksSymlinks verifies that globbed copy sources
+// recreate symlink matches.
+func TestProvision_GlobPatternLinksSymlinks(t *testing.T) {
+	primary := t.TempDir()
+	target := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(primary, ".env.production"), []byte("prod"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(primary, ".env.source"), []byte("source"), 0644))
+	require.NoError(t, os.Symlink(filepath.Join(primary, ".env.source"), filepath.Join(primary, ".env.local")))
+
+	err := Provision(ProvisionConfig{
+		PrimaryDir: primary,
+		TargetDir:  target,
+		Copy:       []string{".env.*"},
+	})
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(target, ".env.production"))
+	require.NoError(t, err)
+	assert.Equal(t, "prod", string(content))
+
+	linkPath := filepath.Join(target, ".env.local")
+	info, err := os.Lstat(linkPath)
+	require.NoError(t, err)
+	assert.True(t, info.Mode()&os.ModeSymlink != 0, "expected symlink")
+
+	linkTarget, err := os.Readlink(linkPath)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(target, ".env.source"), linkTarget)
 }

@@ -29,6 +29,8 @@ func init() {
 func init() {
 	rootCmd.AddCommand(newCmd())
 	rootCmd.AddCommand(listCmd())
+	rootCmd.AddCommand(cdCmd())
+	rootCmd.AddCommand(shellInitCmd())
 	rootCmd.AddCommand(removeCmd())
 	rootCmd.AddCommand(setupCmd())
 	rootCmd.AddCommand(configCmd())

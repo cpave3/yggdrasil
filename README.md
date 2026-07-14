@@ -12,7 +12,8 @@ This is the v0.1 MVP. It implements:
 
 - **`yg init`** — generate a `.yggdrasil.toml` with auto-detected env files, certs, ecosystem, and trunk branch
 - **`yg new <branch> [base]`** — create + provision + hook a worktree
-- **`yg list`** / **`yg ls`** — status dashboard (branch, path, dirty/clean, ahead/behind, locked)
+- **`yg list`** / **`yg ls`** — indexed status dashboard (branch, path, dirty/clean, ahead/behind, locked)
+- **`yg cd <index>`** — change to a listed worktree with shell integration
 - **`yg remove <branch>`** — tear down with safety checks
 - **`yg setup <branch>`** — re-provision an existing tree
 - **`yg config`** — print effective merged config
@@ -23,7 +24,7 @@ This is the v0.1 MVP. It implements:
 - Layered config: defaults → `.yggdrasil.toml` → `.yggdrasil.local.toml`
 
 Not yet implemented (per PRD milestones v0.2+): trust boundary, JSON output,
-event emission, profiles, secret scoping, merge/sync, prune, shell integration.
+event emission, profiles, secret scoping, merge/sync, and prune.
 
 ## Build & Test
 
@@ -44,8 +45,12 @@ yg init
 # Create a worktree — provisions files, installs deps, runs hooks:
 yg new feature-x
 
-# List all worktrees:
+# Enable `yg cd` in Bash or Zsh (also add this to your shell startup file):
+eval "$(yg shell-init)"
+
+# List all worktrees, then switch by index:
 yg list
+yg cd 1
 
 # Remove when done:
 yg remove --delete-branch feature-x
@@ -93,11 +98,32 @@ yg ls
 
 Output:
 ```
-BRANCH       PATH                                  STATUS  AHEAD  BEHIND  LOCKED
-main         /repos/myproject                      clean   0      0
-feature-x    /repos/myproject.feature-x            clean   3      0
-agent-feat   /repos/myproject.agent-feat          dirty    2      1       locked
+INDEX  BRANCH       PATH                                  STATUS  AHEAD  BEHIND  LOCKED
+0      main         /repos/myproject                      clean   0      0
+1      feature-x    /repos/myproject.feature-x            clean   3      0
+2      agent-feat   /repos/myproject.agent-feat           dirty   2      1       locked
 ```
+
+Indices are assigned dynamically in Git's worktree-list order and may change
+when worktrees are added or removed.
+
+### Change worktrees by index
+
+Enable the Bash/Zsh integration once per shell, normally from `~/.bashrc` or
+`~/.zshrc`:
+
+```bash
+eval "$(yg shell-init)"
+```
+
+Then use an index shown by `yg ls`:
+
+```bash
+yg cd 1
+```
+
+Without shell integration, the binary command prints the selected path instead,
+which is useful for scripts.
 
 ### Remove a worktree
 

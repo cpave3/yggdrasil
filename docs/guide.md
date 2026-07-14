@@ -67,6 +67,17 @@ pre_remove = []
 
 ## 2. The workflow
 
+### Enable indexed worktree switching
+
+Add the integration to your Bash or Zsh startup file, then restart the shell:
+
+```bash
+eval "$(yg shell-init)"
+```
+
+This lets the `yg` shell function change the current shell's directory. Without
+it, `yg cd <index>` prints the selected path for use in scripts.
+
 ### Starting work on a feature
 
 ```bash
@@ -76,10 +87,12 @@ yg new feature-payment-integration
 # Output:
 # Created worktree for feature-payment-integration at /repos/myproject.feature-payment-integration
 
-# cd into it:
-cd $(yg new --print-path feature-payment-integration)
-# or just:
-cd ../myproject.feature-payment-integration
+# List worktrees and cd using the displayed index:
+yg ls
+yg cd 1
+
+# Without shell integration, command substitution also works:
+cd "$(command yg cd 1)"
 ```
 
 At this point the new worktree has:
@@ -101,12 +114,15 @@ yg new agent-refactor-3 --agent-owned
 
 # Check what's running:
 yg list
-# BRANCH           PATH                                        STATUS  AHEAD  BEHIND  LOCKED
-# main             /repos/myproject                            clean   0      0
-# agent-refactor-1 /repos/myproject.agent-refactor-1           clean   2      0       locked
-# agent-refactor-2 /repos/myproject.agent-refactor-2           dirty   5      0       locked
-# agent-refactor-3 /repos/myproject.agent-refactor-3           clean   3      1       locked
+# INDEX BRANCH           PATH                                        STATUS  AHEAD  BEHIND  LOCKED
+# 0     main             /repos/myproject                            clean   0      0
+# 1     agent-refactor-1 /repos/myproject.agent-refactor-1           clean   2      0       locked
+# 2     agent-refactor-2 /repos/myproject.agent-refactor-2           dirty   5      0       locked
+# 3     agent-refactor-3 /repos/myproject.agent-refactor-3           clean   3      1       locked
 ```
+
+Indices are dynamic and can change when worktrees are added or removed, so run
+`yg ls` before selecting one.
 
 `--agent-owned` locks the worktree so a stray `git worktree prune` (from
 another tool, a cron job, a CI cleanup) can't reap it while the agent is still

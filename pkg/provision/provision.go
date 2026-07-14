@@ -47,11 +47,11 @@ func Provision(pc ProvisionConfig) error {
 				return fmt.Errorf("stat %s: %w", src, err)
 			}
 			if info.IsDir() {
-				if err := copyDir(src, dst); err != nil {
+				if err := copyDir(src, dst, pc.PrimaryDir, pc.TargetDir); err != nil {
 					return err
 				}
 			} else {
-				if err := CopyFile(src, dst); err != nil {
+				if err := copyProvisionedFile(src, dst, pc.PrimaryDir, pc.TargetDir); err != nil {
 					return err
 				}
 			}
@@ -109,30 +109,91 @@ func resolveGlob(primaryDir, pattern string) ([]string, error) {
 		return nil, err
 	}
 
-	// Filter out symlinks for safety — we don't want to accidentally
-	// traverse into a symlinked directory
-	var safe []string
-	for _, m := range matches {
-		safe = append(safe, m)
-	}
-
-	return safe, nil
+	return matches, nil
 }
 
-// copyDir recursively copies a directory tree, respecting the no-symlink-follow
-// rule (FR-12).
-func copyDir(src, dst string) error {
+// copyProvisionedFile copies regular files and recreates symlink sources as
+// links to the corresponding target-worktree path when the source link points
+// inside the primary worktree.
+func copyProvisionedFile(src, dst, primaryDir, targetDir string) error {
 	info, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("stat %s: %w", src, err)
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("refusing to copy symlink: %s", src)
+		return linkProvisionedSymlinkTarget(src, dst, primaryDir, targetDir)
+	}
+
+	return CopyFile(src, dst)
+}
+
+// linkProvisionedSymlinkTarget creates a symlink at linkPath pointing at the
+// source link's resolved target. Targets inside primaryDir are translated to
+// the equivalent path inside targetDir.
+func linkProvisionedSymlinkTarget(symlinkPath, linkPath, primaryDir, targetDir string) error {
+	linkTarget, err := provisionedSymlinkTarget(symlinkPath, primaryDir, targetDir)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
+		return fmt.Errorf("creating link directory: %w", err)
+	}
+
+	if err := os.Remove(linkPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("removing existing destination %s: %w", linkPath, err)
+	}
+
+	if err := os.Symlink(linkTarget, linkPath); err != nil {
+		return fmt.Errorf("creating symlink: %w", err)
+	}
+
+	return nil
+}
+
+func provisionedSymlinkTarget(symlinkPath, primaryDir, targetDir string) (string, error) {
+	resolvedTarget, err := filepath.EvalSymlinks(symlinkPath)
+	if err != nil {
+		return "", fmt.Errorf("resolving symlink target %s: %w", symlinkPath, err)
+	}
+
+	primaryAbs, err := filepath.Abs(primaryDir)
+	if err != nil {
+		return "", fmt.Errorf("resolving primary root: %w", err)
+	}
+
+	rel, err := filepath.Rel(primaryAbs, resolvedTarget)
+	if err != nil {
+		return "", fmt.Errorf("computing relative path: %w", err)
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return resolvedTarget, nil
+	}
+
+	targetAbs, err := filepath.Abs(targetDir)
+	if err != nil {
+		return "", fmt.Errorf("resolving target root: %w", err)
+	}
+
+	return filepath.Join(targetAbs, rel), nil
+}
+
+// copyDir recursively copies a directory tree, recreating symlink entries
+// without following them.
+func copyDir(src, dst, primaryDir, targetDir string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", src, err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return linkProvisionedSymlinkTarget(src, dst, primaryDir, targetDir)
 	}
 
 	if !info.IsDir() {
-		return CopyFile(src, dst)
+		return copyProvisionedFile(src, dst, primaryDir, targetDir)
 	}
 
 	if err := os.MkdirAll(dst, info.Mode()); err != nil {
@@ -154,15 +215,18 @@ func copyDir(src, dst string) error {
 		}
 
 		if entryInfo.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("refusing to copy symlink: %s", srcPath)
+			if err := linkProvisionedSymlinkTarget(srcPath, dstPath, primaryDir, targetDir); err != nil {
+				return err
+			}
+			continue
 		}
 
 		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
+			if err := copyDir(srcPath, dstPath, primaryDir, targetDir); err != nil {
 				return err
 			}
 		} else {
-			if err := CopyFile(srcPath, dstPath); err != nil {
+			if err := copyProvisionedFile(srcPath, dstPath, primaryDir, targetDir); err != nil {
 				return err
 			}
 		}

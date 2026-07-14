@@ -47,9 +47,9 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "BRANCH\tPATH\tSTATUS\tAHEAD\tBEHIND\tLOCKED")
+	fmt.Fprintln(w, "INDEX\tBRANCH\tPATH\tSTATUS\tAHEAD\tBEHIND\tLOCKED")
 
-	for _, wt := range worktrees {
+	for index, wt := range worktrees {
 		branch := wt.Branch
 		if branch == "" {
 			branch = "(detached)"
@@ -76,7 +76,7 @@ func runList(cmd *cobra.Command, args []string) error {
 			locked = "locked"
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%d\t%s\n", branch, wt.Path, status, ahead, behind, locked)
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%d\t%d\t%s\n", index, branch, wt.Path, status, ahead, behind, locked)
 	}
 
 	return w.Flush()
